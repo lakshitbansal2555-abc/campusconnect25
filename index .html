@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GitScope — GitHub Profile Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #080b12;
+  --surface: #0f1320;
+  --surface2: #171d2e;
+  --border: rgba(255,255,255,0.06);
+  --accent: #00f0a0;
+  --accent2: #6c63ff;
+  --warn: #ffb347;
+  --danger: #ff5f6d;
+  --text: #e2e8f8;
+  --muted: #5a6278;
+  --glow: rgba(0,240,160,0.12);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,240,160,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,160,0.025) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0}
+.orb1{width:600px;height:600px;background:rgba(0,240,160,0.05);top:-200px;left:-150px}
+.orb2{width:500px;height:500px;background:rgba(108,99,255,0.05);bottom:-150px;right:-100px}
+
+nav{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:22px 48px;border-bottom:1px solid var(--border)}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.35rem;display:flex;align-items:center;gap:10px;letter-spacing:-0.02em}
+.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:8px;display:grid;place-items:center}
+.logo em{font-style:normal;color:var(--accent)}
+.nav-pill{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);border:1px solid var(--border);padding:6px 14px;border-radius:20px;letter-spacing:0.08em}
+
+.hero{position:relative;z-index:10;padding:90px 20px 70px;text-align:center}
+.hero-chip{display:inline-flex;align-items:center;font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--accent);border:1px solid rgba(0,240,160,0.25);padding:7px 18px;border-radius:20px;margin-bottom:32px;letter-spacing:0.1em;animation:fadeUp 0.5s ease both}
+.hero h1{font-family:'Syne',sans-serif;font-weight:800;font-size:clamp(2.6rem,6vw,4.5rem);line-height:1.05;letter-spacing:-0.03em;margin-bottom:22px;animation:fadeUp 0.6s 0.05s ease both}
+.hero h1 span{color:var(--accent);text-shadow:0 0 40px rgba(0,240,160,0.3)}
+.hero p{color:var(--muted);font-size:1.05rem;max-width:500px;margin:0 auto 48px;line-height:1.75;animation:fadeUp 0.6s 0.1s ease both}
+
+.search-container{position:relative;z-index:10;display:flex;justify-content:center;padding:0 20px;animation:fadeUp 0.6s 0.15s ease both}
+.search-box{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:580px;overflow:hidden;transition:border-color 0.3s,box-shadow 0.3s;box-shadow:0 4px 30px rgba(0,0,0,0.3)}
+.search-box:focus-within{border-color:rgba(0,240,160,0.35);box-shadow:0 0 0 4px rgba(0,240,160,0.07),0 4px 30px rgba(0,0,0,0.3)}
+.gh-icon{padding:0 20px;color:var(--muted);flex-shrink:0}
+#usernameInput{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:'DM Mono',monospace;font-size:0.95rem;padding:18px 0}
+#usernameInput::placeholder{color:var(--muted)}
+#analyzeBtn{margin:10px;padding:11px 26px;background:var(--accent);color:#000;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all 0.2s;white-space:nowrap;flex-shrink:0}
+#analyzeBtn:hover{opacity:0.85;transform:scale(0.97)}
+#analyzeBtn:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+
+#loading{display:none;position:relative;z-index:10;text-align:center;padding:70px 20px}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.75s linear infinite;margin:0 auto 16px}
+#load-msg{font-family:'DM Mono',monospace;font-size:0.82rem;color:var(--muted)}
+.load-steps{display:flex;justify-content:center;gap:8px;margin-top:20px;flex-wrap:wrap}
+.load-step{font-family:'DM Mono',monospace;font-size:0.7rem;padding:5px 12px;border-radius:20px;border:1px solid var(--border);color:var(--muted);transition:all 0.3s}
+.load-step.active{border-color:rgba(0,240,160,0.4);color:var(--accent);background:rgba(0,240,160,0.06)}
+.load-step.done{color:var(--muted);opacity:0.5;text-decoration:line-through}
+
+#error-box{display:none;position:relative;z-index:10;max-width:560px;margin:30px auto;padding:18px 24px;background:rgba(255,95,109,0.07);border:1px solid rgba(255,95,109,0.25);border-radius:14px;color:var(--danger);font-size:0.9rem;text-align:center}
+
+#results{display:none;position:relative;z-index:10;max-width:980px;margin:0 auto;padding:50px 20px 90px}
+
+.profile-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;display:flex;align-items:center;gap:28px;margin-bottom:28px;flex-wrap:wrap;animation:fadeUp 0.5s ease both}
+.avatar{width:88px;height:88px;border-radius:50%;border:3px solid var(--accent);flex-shrink:0;box-shadow:0 0 28px var(--glow)}
+.pinfo{flex:1;min-width:200px}
+.pinfo h2{font-family:'Syne',sans-serif;font-weight:800;font-size:1.65rem;letter-spacing:-0.02em;margin-bottom:4px}
+.handle{font-family:'DM Mono',monospace;color:var(--accent);font-size:0.82rem;margin-bottom:10px}
+.bio-text{color:var(--muted);font-size:0.88rem;line-height:1.55}
+.meta-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.meta-pill{font-family:'DM Mono',monospace;font-size:0.72rem;color:var(--muted);border:1px solid var(--border);padding:4px 10px;border-radius:20px}
+.pstats{display:flex;gap:20px;flex-wrap:wrap;margin-top:16px}
+.pstat .v{font-family:'Syne',sans-serif;font-weight:800;font-size:1.25rem;display:block}
+.pstat .l{font-size:0.7rem;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:0.06em}
+
+.score-block{display:flex;flex-direction:column;align-items:center;min-width:110px}
+.ring-wrap{position:relative;width:110px;height:110px}
+.ring-wrap svg{transform:rotate(-90deg)}
+.ring-track{fill:none;stroke:var(--surface2);stroke-width:9}
+.ring-fill{fill:none;stroke-width:9;stroke-linecap:round;stroke-dasharray:295;stroke-dashoffset:295;transition:stroke-dashoffset 1.4s cubic-bezier(.2,.8,.3,1)}
+.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-num{font-family:'Syne',sans-serif;font-weight:800;font-size:1.65rem;line-height:1}
+.ring-denom{font-size:0.6rem;color:var(--muted);font-family:'DM Mono',monospace}
+.score-grade{font-family:'Syne',sans-serif;font-weight:700;font-size:0.75rem;letter-spacing:0.08em;margin-top:10px}
+
+.sec-label{font-family:'DM Mono',monospace;font-weight:500;font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.14em;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.subscore-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin-bottom:28px}
+.subscore-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden;animation:fadeUp 0.5s ease both}
+.sc-icon{font-size:1.3rem;margin-bottom:10px}
+.sc-lbl{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px}
+.sc-val{font-family:'Syne',sans-serif;font-weight:800;font-size:1.9rem;line-height:1;margin-bottom:8px}
+.sc-bar{height:3px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-bottom:8px}
+.sc-bar-fill{height:100%;border-radius:3px;width:0%;transition:width 1.2s cubic-bezier(.2,.8,.3,1)}
+.sc-note{font-size:0.74rem;color:var(--muted);line-height:1.4}
+
+.rec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:28px}
+.rec-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;animation:fadeUp 0.5s ease both}
+.rec-title{font-size:0.75rem;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px}
+.rec-val{font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;line-height:1.2;margin-bottom:4px}
+.rec-sub{font-size:0.76rem;color:var(--muted)}
+
+.lang-section{margin-bottom:28px}
+.lang-bar-wrap{display:flex;flex-direction:column;gap:12px}
+.lang-row{display:flex;align-items:center;gap:12px;animation:fadeUp 0.5s ease both}
+.lang-name{width:110px;color:var(--muted);font-family:'DM Mono',monospace;font-size:0.78rem;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.lang-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
+.lang-track{flex:1;height:6px;background:var(--surface2);border-radius:6px;overflow:hidden}
+.lang-fill{height:100%;border-radius:6px;width:0%;transition:width 1.2s cubic-bezier(.2,.8,.3,1)}
+.lang-pct{width:38px;text-align:right;font-family:'DM Mono',monospace;font-size:0.73rem;color:var(--muted)}
+
+.repo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px;margin-bottom:28px}
+.repo-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;transition:border-color 0.2s,transform 0.2s;animation:fadeUp 0.5s ease both}
+.repo-card:hover{border-color:rgba(0,240,160,0.2);transform:translateY(-2px)}
+.repo-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.repo-name{font-family:'Syne',sans-serif;font-weight:700;font-size:0.92rem}
+.repo-name a{color:var(--text);text-decoration:none}
+.repo-name a:hover{color:var(--accent)}
+.repo-desc{color:var(--muted);font-size:0.8rem;line-height:1.55;margin-bottom:12px;min-height:36px}
+.repo-foot{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-family:'DM Mono',monospace;font-size:0.73rem;color:var(--muted)}
+.repo-tip{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:0.76rem;color:var(--muted);line-height:1.5}
+.rbadge{font-family:'DM Mono',monospace;font-size:0.62rem;padding:3px 9px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.rb-good{background:rgba(0,240,160,0.1);color:var(--accent);border:1px solid rgba(0,240,160,0.25)}
+.rb-improve{background:rgba(255,179,71,0.1);color:var(--warn);border:1px solid rgba(255,179,71,0.25)}
+.rb-archive{background:rgba(255,95,109,0.08);color:var(--danger);border:1px solid rgba(255,95,109,0.2)}
+
+.insights-list{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.insight{background:var(--surface);border-radius:12px;padding:16px 20px;display:flex;align-items:flex-start;gap:14px;animation:fadeUp 0.5s ease both}
+.insight.pos{border:1px solid rgba(0,240,160,0.2);border-left:3px solid var(--accent)}
+.insight.warn{border:1px solid rgba(255,179,71,0.2);border-left:3px solid var(--warn)}
+.insight.crit{border:1px solid rgba(255,95,109,0.2);border-left:3px solid var(--danger)}
+.insight-ico{font-size:1rem;flex-shrink:0;margin-top:1px}
+.insight-txt{font-size:0.86rem;line-height:1.65}
+.insight-txt strong{color:var(--text);font-weight:600}
+
+.steps-list{display:flex;flex-direction:column;gap:10px;margin-bottom:28px}
+.step{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;display:flex;align-items:flex-start;gap:16px;animation:fadeUp 0.5s ease both}
+.step-num{font-family:'Syne',sans-serif;font-weight:800;font-size:0.88rem;color:var(--accent);background:rgba(0,240,160,0.08);border:1px solid rgba(0,240,160,0.2);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-body{flex:1}
+.step-title{font-weight:600;font-size:0.9rem;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.step-desc{color:var(--muted);font-size:0.81rem;line-height:1.6}
+.ptag{font-family:'DM Mono',monospace;font-size:0.62rem;padding:2px 8px;border-radius:20px}
+.p-hi{background:rgba(255,95,109,0.1);color:var(--danger);border:1px solid rgba(255,95,109,0.2)}
+.p-md{background:rgba(255,179,71,0.1);color:var(--warn);border:1px solid rgba(255,179,71,0.2)}
+.p-lo{background:rgba(0,240,160,0.07);color:var(--accent);border:1px solid rgba(0,240,160,0.18)}
+
+.share-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+.share-btn{font-family:'Syne',sans-serif;font-weight:700;font-size:0.85rem;padding:12px 28px;border-radius:10px;border:none;cursor:pointer;transition:all 0.2s}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{opacity:0.85;transform:scale(0.97)}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:rgba(255,255,255,0.2)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:620px){
+  nav{padding:16px 20px}
+  .profile-card{flex-direction:column;text-align:center}
+  .pstats{justify-content:center}
+  .meta-row{justify-content:center}
+  .score-block{margin:0 auto}
+}
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<nav>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="black"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    </div>
+    Git<em>Scope</em>
+  </div>
+  <div class="nav-pill">RECRUITER ANALYZER</div>
+</nav>
+
+<section class="hero">
+  <div class="hero-chip">✦ AICORE HACKATHON — UNSAIDTALKS</div>
+  <h1>Is your GitHub<br/><span>recruiter-ready?</span></h1>
+  <p>Enter any GitHub username and get a full profile audit — scores, repo insights, what recruiters notice, and your personalized action plan.</p>
+</section>
+
+<div class="search-container">
+  <div class="search-box">
+    <span class="gh-icon">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" style="color:var(--muted)"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    </span>
+    <input type="text" id="usernameInput" placeholder="e.g. torvalds" autocomplete="off" spellcheck="false"/>
+    <button id="analyzeBtn" onclick="analyze()">Analyze →</button>
+  </div>
+</div>
+
+<div id="error-box"></div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div id="load-msg">Initializing...</div>
+  <div class="load-steps">
+    <div class="load-step" id="ls1">① Profile</div>
+    <div class="load-step" id="ls2">② Repos</div>
+    <div class="load-step" id="ls3">③ Activity</div>
+    <div class="load-step" id="ls4">④ Scoring</div>
+    <div class="load-step" id="ls5">⑤ Insights</div>
+  </div>
+</div>
+
+<div id="results"></div>
+
+<script>
+/* ── LANGUAGE COLORS ── */
+const LC={JavaScript:'#f7df1e',TypeScript:'#3178c6',Python:'#3572A5',Java:'#b07219',Go:'#00ADD8',Rust:'#dea584','C#':'#178600','C++':'#f34b7d',C:'#555555',Ruby:'#701516',Swift:'#FA7343',Kotlin:'#A97BFF',PHP:'#4F5D95',HTML:'#e34c26',CSS:'#563d7c',Shell:'#89e051',Dart:'#00B4AB',Vue:'#42b883',Scala:'#c22d40',R:'#276dc3',Lua:'#000080',Haskell:'#5e5086'};
+const lc=l=>LC[l]||'#5a6278';
+
+/* ── HELPERS ── */
+const scoreColor=v=>v>=80?'#00f0a0':v>=60?'#6c63ff':v>=40?'#ffb347':'#ff5f6d';
+const gradeLabel=v=>v>=88?{t:'EXCEPTIONAL',c:'#00f0a0'}:v>=74?{t:'STRONG',c:'#6c63ff'}:v>=58?{t:'DECENT',c:'#ffb347'}:v>=38?{t:'NEEDS WORK',c:'#ff5f6d'}:{t:'WEAK',c:'#ff5f6d'};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ── STEP UI ── */
+let curStep=0;
+function setStep(n,msg){
+  if(curStep>0){const old=document.getElementById('ls'+curStep);if(old){old.classList.remove('active');old.classList.add('done');}}
+  curStep=n;
+  const el=document.getElementById('ls'+n);
+  if(el) el.classList.add('active');
+  document.getElementById('load-msg').textContent=msg;
+}
+
+/* ── GITHUB FETCH ── */
+async function ghFetch(path){
+  const res=await fetch('https://api.github.com'+path,{headers:{Accept:'application/vnd.github.v3+json'}});
+  if(res.status===403){
+    const rem=res.headers.get('X-RateLimit-Remaining');
+    if(rem==='0') throw new Error('GitHub rate limit reached. Wait ~1 minute then try again.');
+    throw new Error('GitHub API access denied (403).');
+  }
+  if(res.status===404) throw new Error('GitHub user "'+path.split('/')[2]+'" not found. Check the username.');
+  if(!res.ok) throw new Error('GitHub API error ('+res.status+'). Try again.');
+  return res.json();
+}
+
+/* ── ERROR / UI ── */
+function showError(msg){
+  document.getElementById('loading').style.display='none';
+  const b=document.getElementById('error-box');
+  b.style.display='block';
+  b.innerHTML='⚠️ '+msg;
+}
+
+/* ── MAIN ── */
+async function analyze(){
+  const username=document.getElementById('usernameInput').value.trim().replace(/^@/,'');
+  if(!username){showError('Please enter a GitHub username.');return;}
+  document.getElementById('analyzeBtn').disabled=true;
+  document.getElementById('error-box').style.display='none';
+  document.getElementById('results').style.display='none';
+  document.getElementById('loading').style.display='block';
+  curStep=0;
+
+  try{
+    setStep(1,'Fetching profile...');
+    const user=await ghFetch('/users/'+username);
+
+    setStep(2,'Loading repositories...');
+    let repos=[];
+    for(let p=1;p<=3;p++){
+      const batch=await ghFetch('/users/'+username+'/repos?per_page=100&page='+p+'&sort=pushed');
+      repos=repos.concat(batch);
+      if(batch.length<100) break;
+    }
+
+    setStep(3,'Checking activity...');
+    let events=[];
+    try{events=await ghFetch('/users/'+username+'/events/public?per_page=100');}catch(e){}
+
+    setStep(4,'Calculating scores...');
+    await sleep(400);
+    const analysis=computeAnalysis(user,repos,events);
+
+    setStep(5,'Building your report...');
+    await sleep(300);
+
+    document.getElementById('loading').style.display='none';
+    renderResults(user,repos,analysis);
+  }catch(e){
+    showError(e.message||'Something went wrong. Please try again.');
+  }finally{
+    document.getElementById('analyzeBtn').disabled=false;
+  }
+}
+
+/* ── SCORING ENGINE ── */
+function computeAnalysis(user,repos,events){
+  const nonFork=repos.filter(r=>!r.fork);
+  const totalStars=repos.reduce((s,r)=>s+r.stargazers_count,0);
+  const totalForks=repos.reduce((s,r)=>s+r.forks_count,0);
+  const ageYears=(Date.now()-new Date(user.created_at))/(365.25*24*3600*1000);
+  const now=Date.now();
+
+  /* Profile Completeness */
+  let pc=0;
+  if(user.name) pc+=20;
+  if(user.bio&&user.bio.length>10) pc+=25;
+  if(user.location) pc+=15;
+  if(user.blog) pc+=15;
+  if(user.company) pc+=10;
+  if(user.email) pc+=10;
+  if(user.twitter_username) pc+=5;
+  pc=Math.min(100,pc);
+
+  /* Code Activity */
+  const recentEvents=events.filter(e=>(now-new Date(e.created_at))<(90*24*3600*1000));
+  const pushEvents=recentEvents.filter(e=>e.type==='PushEvent').length;
+  const allPushEvents=events.filter(e=>e.type==='PushEvent').length;
+  let ca=0;
+  ca+=Math.min(35,nonFork.length*1.5);
+  ca+=Math.min(30,pushEvents*2.5);
+  ca+=Math.min(15,allPushEvents*0.8);
+  ca+=ageYears>2?20:ageYears>1?10:5;
+  ca=Math.min(100,Math.round(ca));
+
+  /* Project Quality */
+  let pq=0;
+  if(nonFork.length>0){
+    const withDesc=nonFork.filter(r=>r.description&&r.description.length>5).length;
+    const withTopics=nonFork.filter(r=>r.topics&&r.topics.length>0).length;
+    const withLicense=nonFork.filter(r=>r.license).length;
+    pq+=Math.min(30,(withDesc/nonFork.length)*30);
+    pq+=Math.min(20,(withTopics/nonFork.length)*20);
+    pq+=Math.min(15,(withLicense/nonFork.length)*15);
+    pq+=Math.min(25,Math.log10(totalStars+1)*12);
+    pq+=Math.min(10,nonFork.length>=8?10:nonFork.length*1.2);
+  }
+  pq=Math.min(100,Math.round(pq));
+
+  /* Community Engagement */
+  let ce=0;
+  ce+=Math.min(35,Math.log10(user.followers+1)*18);
+  ce+=Math.min(20,Math.log10(totalForks+1)*12);
+  const prEvt=recentEvents.filter(e=>e.type==='PullRequestEvent').length;
+  const issEvt=recentEvents.filter(e=>e.type==='IssuesEvent').length;
+  ce+=Math.min(30,prEvt*5+issEvt*2);
+  ce+=Math.min(15,(user.public_gists||0)*2);
+  ce=Math.min(100,Math.round(ce));
+
+  /* Recruiter Impact */
+  let ri=0;
+  const sorted=nonFork.slice().sort((a,b)=>b.stargazers_count-a.stargazers_count);
+  const top6=sorted.slice(0,6);
+  const avgStars=top6.length?top6.reduce((s,r)=>s+r.stargazers_count,0)/top6.length:0;
+  ri+=Math.min(30,Math.log10(avgStars+1)*15);
+  ri+=pc>60?25:pc>30?12:0;
+  ri+=ca>60?20:ca>30?10:0;
+  ri+=totalStars>100?15:totalStars>10?8:totalStars>0?4:0;
+  ri+=nonFork.length>=10?10:nonFork.length>=5?5:0;
+  ri=Math.min(100,Math.round(ri));
+
+  const overall=Math.round(pc*0.18+ca*0.22+pq*0.25+ce*0.15+ri*0.20);
+
+  /* Languages */
+  const langMap={};
+  repos.forEach(r=>{if(r.language) langMap[r.language]=(langMap[r.language]||0)+1;});
+  const lt=Object.values(langMap).reduce((s,v)=>s+v,0)||1;
+  const topLangs=Object.entries(langMap).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([l,c])=>({lang:l,pct:Math.round((c/lt)*100)}));
+
+  /* Repo Insights */
+  const repoInsights=nonFork.slice().sort((a,b)=>b.stargazers_count-a.stargazers_count).slice(0,6).map(r=>{
+    const hasDesc=r.description&&r.description.length>5;
+    const hasTopics=r.topics&&r.topics.length>0;
+    const recentlyUpdated=(now-new Date(r.pushed_at))<(180*24*3600*1000);
+    const stars=r.stargazers_count;
+    const score=(hasDesc?1:0)+(hasTopics?1:0)+(recentlyUpdated?1:0)+(stars>0?1:0);
+    let status,reason;
+    if(score>=3&&stars>0){
+      status='good';
+      reason=stars>5?`⭐ ${stars} stars — great social proof. Keep maintaining it.`:'Well documented & active. Share it online for more visibility.';
+    }else if(!hasDesc&&!recentlyUpdated){
+      status='archive';
+      reason='No description and inactive for 6+ months. Consider archiving or deleting to declutter your profile.';
+    }else{
+      status='improve';
+      reason=[!hasDesc&&'Add a description.',!hasTopics&&'Add topics/tags.',!recentlyUpdated&&'Stale — update or add a README.'].filter(Boolean).join(' ');
+    }
+    return{...r,status,reason};
+  });
+
+  /* Insights */
+  const insights=[];
+  if(!user.bio||user.bio.length<10)
+    insights.push({type:'crit',text:'<strong>No bio set.</strong> Your bio is the first thing recruiters read. Add 1–2 sentences covering your skills and what you\'re building or interested in.'});
+  else
+    insights.push({type:'pos',text:`<strong>Bio present.</strong> "${user.bio.slice(0,80)}${user.bio.length>80?'...':''}" — helps recruiters immediately understand who you are.`});
+  if(!user.blog)
+    insights.push({type:'warn',text:'<strong>No portfolio/website link.</strong> Add a personal site, portfolio, or LinkedIn URL to your profile. Recruiters click it.'});
+  if(!user.location)
+    insights.push({type:'warn',text:'<strong>Location missing.</strong> Recruiters often filter by location. Add it even if you\'re open to remote.'});
+  if(pushEvents<5)
+    insights.push({type:'crit',text:'<strong>Very low recent commits.</strong> Fewer than 5 push events in the last 90 days. Consistent daily commits signal an active developer.'});
+  else if(pushEvents>25)
+    insights.push({type:'pos',text:`<strong>High activity!</strong> ${pushEvents} push events in the last 90 days — this signals consistency to recruiters.`});
+  const noDescCount=nonFork.filter(r=>!r.description).length;
+  if(noDescCount>0&&noDescCount>Math.floor(nonFork.length*0.4))
+    insights.push({type:'crit',text:`<strong>${noDescCount} repos have no description.</strong> Recruiters skip undescribed repos. Add at least 1 sentence to your top projects.`});
+  if(totalStars>=50)
+    insights.push({type:'pos',text:`<strong>${totalStars} total stars.</strong> Solid social proof that your work is valued by the developer community.`});
+  else if(totalStars===0&&nonFork.length>3)
+    insights.push({type:'warn',text:'<strong>Zero stars across all repos.</strong> Share your best project on Reddit (r/programming), Dev.to, or LinkedIn to gain visibility.'});
+  if(user.followers>=100)
+    insights.push({type:'pos',text:`<strong>${user.followers} followers.</strong> A healthy following signals community recognition.`});
+  else if(user.followers<5&&nonFork.length>3)
+    insights.push({type:'warn',text:'<strong>Low followers.</strong> Engage with other developers — follow interesting people, comment on issues, open PRs.'});
+
+  /* Next Steps */
+  const steps=[];
+  if(!user.bio||user.bio.length<10)
+    steps.push({p:'high',title:'Write a compelling bio',desc:'In 1–2 sentences: your stack, what you build, and what you\'re looking for. e.g. "Full-stack dev building EdTech tools with React + Node. Open to internships."'});
+  if(!user.blog)
+    steps.push({p:'high',title:'Add a portfolio or LinkedIn link',desc:'Even a simple GitHub Pages site counts. Recruiters look for this link — make sure it leads somewhere useful.'});
+  const poorRepos=nonFork.filter(r=>!r.description).slice(0,3);
+  if(poorRepos.length)
+    steps.push({p:'high',title:`Add descriptions to: ${poorRepos.map(r=>r.name).join(', ')}`,desc:'Edit each repo → pencil icon → Description. One sentence explaining what it does and what tech was used is enough.'});
+  const noTopicRepos=nonFork.filter(r=>!r.topics||!r.topics.length).slice(0,2);
+  if(noTopicRepos.length)
+    steps.push({p:'medium',title:'Add topics/tags to your repos',desc:'Tags like "react", "python", "open-source" improve discoverability in GitHub search. Edit repo → ⚙ gear icon → Topics.'});
+  if(pushEvents<10)
+    steps.push({p:'high',title:'Commit something every day for 30 days',desc:'Consistency beats volume. Even fixing a bug, adding docs, or improving a README keeps your graph green and shows active development.'});
+  const bestRepo=nonFork.slice().sort((a,b)=>b.stargazers_count-a.stargazers_count)[0];
+  if(bestRepo&&bestRepo.stargazers_count<10)
+    steps.push({p:'medium',title:`Promote "${bestRepo.name}" externally`,desc:'Share your best project on Reddit, Dev.to, or LinkedIn. One post can earn 20–100 stars and get recruiters to notice you.'});
+  if(nonFork.length<6)
+    steps.push({p:'medium',title:'Build and publish 3 more projects',desc:'Recruiters want to see range. Build 1 web app, 1 CLI tool, and 1 API/backend project. Each one adds a data point to your credibility.'});
+  if(!recentEvents.find(e=>e.type==='PullRequestEvent'))
+    steps.push({p:'low',title:'Make your first open source contribution',desc:'Search GitHub for "good first issue" labels. A single merged PR on a popular project is a powerful resume line that most students skip.'});
+
+  const activity=pushEvents>30?'Consistent':pushEvents>10?'Moderate':'Sparse';
+  const hiringLikelihood=overall>=75?'High':overall>=50?'Medium':'Low';
+  const standout=nonFork.slice().sort((a,b)=>b.stargazers_count-a.stargazers_count)[0]?.name||'None';
+  const topLang=topLangs[0]?.lang||'Unknown';
+  const firstImpression=overall>=75
+    ?`Strong profile with ${nonFork.length} original repos and ${totalStars} total stars. Likely to shortlist for screening.`
+    :overall>=50
+    ?`Decent activity but profile polish is missing. Would browse repos but needs a standout project to follow up.`
+    :`Profile feels sparse and incomplete. No strong signal of active or polished development visible at a glance.`;
+
+  return{overall,subscores:{pc,ca,pq,ce,ri},topLangs,repoInsights,insights:insights.slice(0,6),steps:steps.slice(0,6),recruiter:{firstImpression,standout,topLang,activity,hiringLikelihood},totalStars,nonForkCount:nonFork.length};
+}
+
+/* ── RENDER ── */
+function renderResults(user,repos,A){
+  const el=document.getElementById('results');
+  el.style.display='block';
+  const g=gradeLabel(A.overall);
+  const s=A.subscores;
+  const r=A.recruiter;
+  const circumference=295;
+  const offset=circumference-(A.overall/100)*circumference;
+
+  el.innerHTML=`
+  <div class="profile-card">
+    <img class="avatar" src="${user.avatar_url}" alt="${user.login}"/>
+    <div class="pinfo">
+      <h2>${user.name||user.login}</h2>
+      <div class="handle">@${user.login}</div>
+      <div class="bio-text">${user.bio||'<em style="color:var(--muted)">No bio — add one!</em>'}</div>
+      <div class="meta-row">
+        ${user.location?`<div class="meta-pill">📍 ${user.location}</div>`:''}
+        ${user.blog?`<div class="meta-pill">🔗 ${user.blog.replace(/https?:\/\//,'').slice(0,30)}</div>`:''}
+        ${user.company?`<div class="meta-pill">🏢 ${user.company}</div>`:''}
+      </div>
+      <div class="pstats">
+        <div class="pstat"><span class="v">${A.nonForkCount}</span><span class="l">ORIG REPOS</span></div>
+        <div class="pstat"><span class="v">${user.followers}</span><span class="l">FOLLOWERS</span></div>
+        <div class="pstat"><span class="v">${A.totalStars}</span><span class="l">TOTAL STARS</span></div>
+        <div class="pstat"><span class="v">${(((Date.now()-new Date(user.created_at))/(365.25*24*3600*1000))*10|0)/10}y</span><span class="l">ON GITHUB</span></div>
+      </div>
+    </div>
+    <div class="score-block">
+      <div class="ring-wrap">
+        <svg width="110" height="110" viewBox="0 0 110 110">
+          <circle class="ring-track" cx="55" cy="55" r="47"/>
+          <circle class="ring-fill" id="ringFill" cx="55" cy="55" r="47" stroke="${scoreColor(A.overall)}"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-num" style="color:${scoreColor(A.overall)}">${A.overall}</div>
+          <div class="ring-denom">/100</div>
+        </div>
+      </div>
+      <div class="score-grade" style="color:${g.c}">${g.t}</div>
+    </div>
+  </div>
+
+  <div class="sec-label">Score Breakdown</div>
+  <div class="subscore-grid">
+    ${[{k:'pc',i:'👤',l:'Profile Setup',n:s.pc>=80?'Complete & professional':s.pc>=50?'Missing some details':'Mostly empty'},
+       {k:'ca',i:'⚡',l:'Code Activity',n:s.ca>=80?'Very active developer':s.ca>=50?'Moderate activity':'Sparse commits'},
+       {k:'pq',i:'🏆',l:'Project Quality',n:s.pq>=80?'Well-documented repos':s.pq>=50?'Some repos need polish':'Projects lack docs'},
+       {k:'ce',i:'🤝',l:'Community',n:s.ce>=80?'Strong community voice':s.ce>=50?'Growing presence':'Low engagement'},
+       {k:'ri',i:'🎯',l:'Recruiter Impact',n:s.ri>=80?'Gets shortlisted':s.ri>=50?'Decent but improvable':'Hard to notice'},
+    ].map((sc,i)=>{const v=s[sc.k];const c=scoreColor(v);return`<div class="subscore-card" style="animation-delay:${i*0.07}s"><div style="position:absolute;top:0;left:0;right:0;height:2px;border-radius:14px 14px 0 0;background:${c}"></div><div class="sc-icon">${sc.i}</div><div class="sc-lbl">${sc.l}</div><div class="sc-val" style="color:${c}">${v}</div><div class="sc-bar"><div class="sc-bar-fill" id="bar${i}" style="background:${c}"></div></div><div class="sc-note">${sc.n}</div></div>`;}).join('')}
+  </div>
+
+  <div class="sec-label">What Recruiters See</div>
+  <div class="rec-grid">
+    <div class="rec-card"><div class="rec-title">👁 First Impression</div><div style="font-size:0.83rem;color:var(--muted);line-height:1.65">${r.firstImpression}</div></div>
+    <div class="rec-card"><div class="rec-title">⭐ Standout Repo</div><div class="rec-val" style="color:var(--accent)">${r.standout}</div><div class="rec-sub">Highest-starred original project</div></div>
+    <div class="rec-card"><div class="rec-title">💻 Main Language</div><div class="rec-val">${r.topLang}</div><div class="rec-sub">Primary stack signal</div></div>
+    <div class="rec-card"><div class="rec-title">📊 Hiring Likelihood</div><div class="rec-val" style="color:${r.hiringLikelihood==='High'?'var(--accent)':r.hiringLikelihood==='Medium'?'var(--warn)':'var(--danger)'}">${r.hiringLikelihood}</div><div class="rec-sub">Commit activity: ${r.activity}</div></div>
+  </div>
+
+  ${A.topLangs.length?`<div class="sec-label">Language Distribution</div>
+  <div class="lang-section"><div class="lang-bar-wrap">
+    ${A.topLangs.map((l,i)=>`<div class="lang-row" style="animation-delay:${i*0.06}s"><div class="lang-name"><span class="lang-dot" style="background:${lc(l.lang)}"></span>${l.lang}</div><div class="lang-track"><div class="lang-fill" id="lang${i}" style="background:${lc(l.lang)}"></div></div><div class="lang-pct">${l.pct}%</div></div>`).join('')}
+  </div></div>`:''}
+
+  <div class="sec-label">Repository Analysis</div>
+  <div class="repo-grid">
+    ${A.repoInsights.map((r,i)=>`<div class="repo-card" style="animation-delay:${i*0.07}s">
+      <div class="repo-top"><div class="repo-name"><a href="https://github.com/${user.login}/${r.name}" target="_blank" rel="noopener">${r.name}</a></div>
+      <span class="rbadge ${r.status==='good'?'rb-good':r.status==='improve'?'rb-improve':'rb-archive'}">${r.status.toUpperCase()}</span></div>
+      <div class="repo-desc">${r.description||'<em>No description</em>'}</div>
+      <div class="repo-foot">${r.language?`<span style="display:flex;align-items:center;gap:4px"><span class="lang-dot" style="background:${lc(r.language)}"></span>${r.language}</span>`:''}<span>⭐ ${r.stargazers_count}</span><span>🍴 ${r.forks_count}</span>${r.topics&&r.topics.length?`<span>🏷 ${r.topics.length}</span>`:''}</div>
+      <div class="repo-tip">${r.reason}</div></div>`).join('')}
+  </div>
+
+  <div class="sec-label">Profile Insights</div>
+  <div class="insights-list">
+    ${A.insights.map((ins,i)=>`<div class="insight ${ins.type==='pos'?'pos':ins.type==='warn'?'warn':'crit'}" style="animation-delay:${i*0.07}s"><div class="insight-ico">${ins.type==='pos'?'✅':ins.type==='warn'?'⚠️':'🔴'}</div><div class="insight-txt">${ins.text}</div></div>`).join('')}
+  </div>
+
+  <div class="sec-label">Recruiter-Ready Roadmap</div>
+  <div class="steps-list">
+    ${A.steps.map((st,i)=>`<div class="step" style="animation-delay:${i*0.07}s"><div class="step-num">${i+1}</div><div class="step-body"><div class="step-title">${st.title}<span class="ptag ${st.p==='high'?'p-hi':st.p==='medium'?'p-md':'p-lo'}">${st.p.toUpperCase()}</span></div><div class="step-desc">${st.desc}</div></div></div>`).join('')}
+  </div>
+
+  <div class="share-row">
+    <button class="share-btn btn-secondary" onclick="resetView()">← Analyze Another</button>
+    <button class="share-btn btn-primary" onclick="window.open('https://github.com/${user.login}','_blank')">View on GitHub ↗</button>
+  </div>`;
+
+  /* Animate ring */
+  setTimeout(()=>{const f=document.getElementById('ringFill');if(f)f.style.strokeDashoffset=offset;},120);
+  /* Animate score bars */
+  const skeys=['pc','ca','pq','ce','ri'];
+  setTimeout(()=>{skeys.forEach((k,i)=>{const b=document.getElementById('bar'+i);if(b)b.style.width=s[k]+'%';});},200);
+  /* Animate lang bars */
+  setTimeout(()=>{A.topLangs.forEach((_,i)=>{const b=document.getElementById('lang'+i);if(b)b.style.width=A.topLangs[i].pct+'%';});},300);
+
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function resetView(){
+  document.getElementById('usernameInput').value='';
+  document.getElementById('results').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.getElementById('usernameInput').addEventListener('keydown',e=>{if(e.key==='Enter')analyze();});
+</script>
+</body>
+</html>
